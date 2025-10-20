@@ -1,3 +1,26 @@
+## mola_imu_preintegration (rolling) - 1.13.2-1
+
+The packages in the `mola_imu_preintegration` repository were released into the `rolling` distro by running `/home/jlblanco/code/bloom-venv/bin/bloom-release -y -r rolling mola_imu_preintegration` on `Mon, 20 Oct 2025 17:43:16 -0000`
+
+The `mola_imu_preintegration` package was released.
+
+Version of package(s) in repository `mola_imu_preintegration`:
+
+- upstream repository: https://github.com/MOLAorg/mola_imu_preintegration.git
+- release repository: https://github.com/ros2-gbp/mola_imu_preintegration-release.git
+- rosdistro version: `1.13.1-1`
+- old version: `1.13.1-1`
+- new version: `1.13.2-1`
+
+Versions of tools used:
+
+- bloom version: `0.11.2`
+- catkin_pkg version: `0.5.2`
+- rosdep version: `0.22.2`
+- rosdistro version: `0.9.0`
+- vcstools version: `0.1.42`
+
+
 ## mola_imu_preintegration (jazzy) - 1.13.2-1
 
 The packages in the `mola_imu_preintegration` repository were released into the `jazzy` distro by running `/home/jlblanco/code/bloom-venv/bin/bloom-release -y -r jazzy mola_imu_preintegration` on `Mon, 20 Oct 2025 17:41:58 -0000`
