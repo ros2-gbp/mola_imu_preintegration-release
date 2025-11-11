@@ -2,6 +2,13 @@
 Changelog for package mola_imu_preintegration
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
+1.14.0 (2025-11-11)
+-------------------
+* BUGFIX: Estimated acc. bias and initial roll had a bug in their formulas.
+* Add unit tests for initial calibrator
+* Update project website URL in package.xml
+* Contributors: Jose Luis Blanco-Claraco
+
 1.13.2 (2025-10-20)
 -------------------
 * Make use of ConstPtr in API
