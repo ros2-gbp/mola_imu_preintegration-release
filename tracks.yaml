@@ -102,5 +102,4 @@ tracks:
     ros_distro: rolling
     vcs_type: git
     vcs_uri: https://github.com/MOLAorg/mola_imu_preintegration.git
-    version: 1.16.0
-    version_saved: :{auto}
+    version: :{auto}
