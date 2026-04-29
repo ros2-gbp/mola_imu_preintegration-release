@@ -1,0 +1,272 @@
+ros-lyrical-mola-imu-preintegration (1.16.0-3trixie) trixie; urgency=high
+
+  * Merge pull request #2 <https://github.com/MOLAorg/mola_imu_preintegration/issues/2> from MOLAorg/feat/implement-low-pass-filters
+    Implement low-pass filtering for acc/omega (more stable transformed IMU vectors)
+  * Add formal CLA
+  * Contributors: Jose Luis Blanco-Claraco
+
+ -- Jose-Luis Blanco-Claraco <joseluisblancoc@gmail.com>  Wed, 22 Apr 2026 00:00:00 -0000
+
+ros-lyrical-mola-imu-preintegration (1.15.0-3trixie) trixie; urgency=high
+
+  * Merge pull request #1 <https://github.com/MOLAorg/mola_imu_preintegration/issues/1> from MOLAorg/feat/transform-without-w
+    ImuTransformer: work on acceleration even without omega
+  * BUG FIX: Wrong copy-paste sign error in centripetal acceleration
+  * ImuTransformer: work on acceleration even without omega
+  * Contributors: Jose Luis Blanco-Claraco
+
+ -- Jose-Luis Blanco-Claraco <joseluisblancoc@gmail.com>  Mon, 23 Feb 2026 00:00:00 -0000
+
+ros-lyrical-mola-imu-preintegration (1.14.1-3trixie) trixie; urgency=high
+
+  * Add option 'use_imu_orientation' to disable using IMU orientation for initialization
+  * CI: Use standard checkout action
+  * Contributors: Jose Luis Blanco-Claraco
+
+ -- Jose-Luis Blanco-Claraco <joseluisblancoc@gmail.com>  Fri, 26 Dec 2025 00:00:00 -0000
+
+ros-lyrical-mola-imu-preintegration (1.14.0-3trixie) trixie; urgency=high
+
+  * BUGFIX: Estimated acc. bias and initial roll had a bug in their formulas.
+  * Add unit tests for initial calibrator
+  * Update project website URL in package.xml
+  * Contributors: Jose Luis Blanco-Claraco
+
+ -- Jose-Luis Blanco-Claraco <joseluisblancoc@gmail.com>  Tue, 11 Nov 2025 00:00:00 -0000
+
+ros-lyrical-mola-imu-preintegration (1.13.2-3trixie) trixie; urgency=high
+
+  * Make use of ConstPtr in API
+  * Contributors: Jose Luis Blanco-Claraco
+
+ -- Jose-Luis Blanco-Claraco <joseluisblancoc@gmail.com>  Mon, 20 Oct 2025 00:00:00 -0000
+
+ros-lyrical-mola-imu-preintegration (1.13.1-3trixie) trixie; urgency=high
+
+  * ImuCalibrator: Robust against invalid orientation data in Imu msgs
+  * Fix random failures in unit test
+  * CI: add running unit tests
+  * Contributors: Jose Luis Blanco-Claraco
+
+ -- Jose-Luis Blanco-Claraco <joseluisblancoc@gmail.com>  Wed, 15 Oct 2025 00:00:00 -0000
+
+ros-lyrical-mola-imu-preintegration (1.13.0-3trixie) trixie; urgency=high
+
+  * FIX: Picked wrong reference stamp for integrating trajectories
+  * Add asString() debugging methods to sample structs
+  * Contributors: Jose Luis Blanco-Claraco
+
+ -- Jose-Luis Blanco-Claraco <joseluisblancoc@gmail.com>  Sat, 11 Oct 2025 00:00:00 -0000
+
+ros-lyrical-mola-imu-preintegration (1.12.0-3trixie) trixie; urgency=high
+
+  * FIX: May leave trajectory poses without populating raw IMU data
+  * ImuInitialCalibrator: Use IMU orientation, if available
+  * LocalVelocityBuffer: reduce default max_time_window to 0.5 s
+  * ImuIntegrationParams: Add save_to() method, and finish missing load_from() fields
+  * Fix comment typos
+  * Readme: Add missing ROS build farm badges for bin packages
+  * Contributors: Jose Luis Blanco-Claraco
+
+ -- Jose-Luis Blanco-Claraco <joseluisblancoc@gmail.com>  Thu, 09 Oct 2025 00:00:00 -0000
+
+ros-lyrical-mola-imu-preintegration (1.11.0-3trixie) trixie; urgency=high
+
+  * New unit tests for IMU integration
+  * Move everything into namespace mola::imu to avoid ns pollution
+  * Move LocalVelocityBuffer class here from mp2p_icp repository
+  * Contributors: Jose Luis Blanco-Claraco
+
+ -- Jose-Luis Blanco-Claraco <joseluisblancoc@gmail.com>  Wed, 24 Sep 2025 00:00:00 -0000
+
+ros-lyrical-mola-imu-preintegration (1.10.0-3trixie) trixie; urgency=high
+
+  * Add class ImuTransformer
+  * Update copyright notice
+  * Import IMU initialization class ImuInitialCalibrator, refactored from the mola LO package
+  * Contributors: Jose Luis Blanco-Claraco
+
+ -- Jose-Luis Blanco-Claraco <joseluisblancoc@gmail.com>  Sun, 07 Sep 2025 00:00:00 -0000
+
+ros-lyrical-mola-imu-preintegration (1.9.0-3trixie) trixie; urgency=high
+
+
+
+ -- Jose-Luis Blanco-Claraco <joseluisblancoc@gmail.com>  Fri, 06 Jun 2025 00:00:00 -0000
+
+ros-lyrical-mola-imu-preintegration (1.8.1-3trixie) trixie; urgency=high
+
+  * fixes for clang-tidy
+  * Contributors: Jose Luis Blanco-Claraco
+
+ -- Jose-Luis Blanco-Claraco <joseluisblancoc@gmail.com>  Sun, 25 May 2025 00:00:00 -0000
+
+ros-lyrical-mola-imu-preintegration (1.8.0-3trixie) trixie; urgency=high
+
+
+
+ -- Jose-Luis Blanco-Claraco <joseluisblancoc@gmail.com>  Sat, 15 Mar 2025 00:00:00 -0000
+
+ros-lyrical-mola-imu-preintegration (1.7.0-3trixie) trixie; urgency=high
+
+
+
+ -- Jose-Luis Blanco-Claraco <joseluisblancoc@gmail.com>  Sat, 22 Feb 2025 00:00:00 -0000
+
+ros-lyrical-mola-imu-preintegration (1.6.1-3trixie) trixie; urgency=high
+
+  * Fix package.xml URLs
+  * Contributors: Jose Luis Blanco-Claraco
+
+ -- Jose-Luis Blanco-Claraco <joseluisblancoc@gmail.com>  Fri, 10 Jan 2025 00:00:00 -0000
+
+ros-lyrical-mola-imu-preintegration (1.6.0-3trixie) trixie; urgency=high
+
+
+
+ -- Jose-Luis Blanco-Claraco <joseluisblancoc@gmail.com>  Fri, 03 Jan 2025 00:00:00 -0000
+
+ros-lyrical-mola-imu-preintegration (1.5.0-3trixie) trixie; urgency=high
+
+
+
+ -- Jose-Luis Blanco-Claraco <joseluisblancoc@gmail.com>  Thu, 26 Dec 2024 00:00:00 -0000
+
+ros-lyrical-mola-imu-preintegration (1.4.1-3trixie) trixie; urgency=high
+
+
+
+ -- Jose-Luis Blanco-Claraco <joseluisblancoc@gmail.com>  Fri, 20 Dec 2024 00:00:00 -0000
+
+ros-lyrical-mola-imu-preintegration (1.4.0-3trixie) trixie; urgency=high
+
+
+
+ -- Jose-Luis Blanco-Claraco <joseluisblancoc@gmail.com>  Wed, 18 Dec 2024 00:00:00 -0000
+
+ros-lyrical-mola-imu-preintegration (1.3.0-3trixie) trixie; urgency=high
+
+
+
+ -- Jose-Luis Blanco-Claraco <joseluisblancoc@gmail.com>  Wed, 11 Dec 2024 00:00:00 -0000
+
+ros-lyrical-mola-imu-preintegration (1.2.1-3trixie) trixie; urgency=high
+
+
+
+ -- Jose-Luis Blanco-Claraco <joseluisblancoc@gmail.com>  Sun, 29 Sep 2024 00:00:00 -0000
+
+ros-lyrical-mola-imu-preintegration (1.2.0-3trixie) trixie; urgency=high
+
+
+
+ -- Jose-Luis Blanco-Claraco <joseluisblancoc@gmail.com>  Mon, 16 Sep 2024 00:00:00 -0000
+
+ros-lyrical-mola-imu-preintegration (1.1.3-3trixie) trixie; urgency=high
+
+  * Depend on new mrpt_lib packages (deprecate mrpt2)
+  * Contributors: Jose Luis Blanco-Claraco
+
+ -- Jose-Luis Blanco-Claraco <joseluisblancoc@gmail.com>  Wed, 28 Aug 2024 00:00:00 -0000
+
+ros-lyrical-mola-imu-preintegration (1.1.2-3trixie) trixie; urgency=high
+
+
+
+ -- Jose-Luis Blanco-Claraco <joseluisblancoc@gmail.com>  Mon, 26 Aug 2024 00:00:00 -0000
+
+ros-lyrical-mola-imu-preintegration (1.1.1-3trixie) trixie; urgency=high
+
+
+
+ -- Jose-Luis Blanco-Claraco <joseluisblancoc@gmail.com>  Fri, 23 Aug 2024 00:00:00 -0000
+
+ros-lyrical-mola-imu-preintegration (1.1.0-3trixie) trixie; urgency=high
+
+  * Update clang-format style; add reformat bash script
+  * Merge pull request #62 <https://github.com/MOLAorg/mola/issues/62> from MOLAorg/docs-fixes
+    Docs fixes
+  * Fix ament_xmllint warnings in package.xml
+  * Contributors: Jose Luis Blanco-Claraco
+
+ -- Jose-Luis Blanco-Claraco <joseluisblancoc@gmail.com>  Sun, 18 Aug 2024 00:00:00 -0000
+
+ros-lyrical-mola-imu-preintegration (1.0.8-3trixie) trixie; urgency=high
+
+  * ament_lint_cmake: clean warnings
+  * Contributors: Jose Luis Blanco-Claraco
+
+ -- Jose-Luis Blanco-Claraco <joseluisblancoc@gmail.com>  Mon, 29 Jul 2024 00:00:00 -0000
+
+ros-lyrical-mola-imu-preintegration (1.0.7-3trixie) trixie; urgency=high
+
+
+
+ -- Jose-Luis Blanco-Claraco <joseluisblancoc@gmail.com>  Wed, 24 Jul 2024 00:00:00 -0000
+
+ros-lyrical-mola-imu-preintegration (1.0.6-3trixie) trixie; urgency=high
+
+
+
+ -- Jose-Luis Blanco-Claraco <joseluisblancoc@gmail.com>  Fri, 21 Jun 2024 00:00:00 -0000
+
+ros-lyrical-mola-imu-preintegration (1.0.5-3trixie) trixie; urgency=high
+
+
+
+ -- Jose-Luis Blanco-Claraco <joseluisblancoc@gmail.com>  Tue, 28 May 2024 00:00:00 -0000
+
+ros-lyrical-mola-imu-preintegration (1.0.4-3trixie) trixie; urgency=high
+
+  * bump cmake_minimum_required to 3.5
+  * Contributors: Jose Luis Blanco-Claraco
+
+ -- Jose-Luis Blanco-Claraco <joseluisblancoc@gmail.com>  Tue, 14 May 2024 00:00:00 -0000
+
+ros-lyrical-mola-imu-preintegration (1.0.3-3trixie) trixie; urgency=high
+
+  * Update docs
+  * Fix package.xml website URL
+  * Contributors: Jose Luis Blanco-Claraco
+
+ -- Jose-Luis Blanco-Claraco <joseluisblancoc@gmail.com>  Mon, 22 Apr 2024 00:00:00 -0000
+
+ros-lyrical-mola-imu-preintegration (1.0.2-3trixie) trixie; urgency=high
+
+
+
+ -- Jose-Luis Blanco-Claraco <joseluisblancoc@gmail.com>  Thu, 04 Apr 2024 00:00:00 -0000
+
+ros-lyrical-mola-imu-preintegration (1.0.1-3trixie) trixie; urgency=high
+
+
+
+ -- Jose-Luis Blanco-Claraco <joseluisblancoc@gmail.com>  Thu, 28 Mar 2024 00:00:00 -0000
+
+ros-lyrical-mola-imu-preintegration (1.0.0-3trixie) trixie; urgency=high
+
+  * API changes for new package mola_navstate_fuse
+  * Contributors: Jose Luis Blanco-Claraco
+
+ -- Jose-Luis Blanco-Claraco <joseluisblancoc@gmail.com>  Tue, 19 Mar 2024 00:00:00 -0000
+
+ros-lyrical-mola-imu-preintegration (0.2.2-3trixie) trixie; urgency=high
+
+  * Update copyright year
+  * Correct references to license
+  * Ported to ROS2 colcon build system
+  * Delete WIP files.
+  * first unit tests
+  * progress, unit tests
+  * Contributors: Jose Luis Blanco-Claraco
+
+ -- Jose-Luis Blanco-Claraco <joseluisblancoc@gmail.com>  Fri, 08 Sep 2023 00:00:00 -0000
+
+ros-lyrical-mola-imu-preintegration (0.2.1-3trixie) trixie; urgency=high
+
+  * Initial commit
+  * Contributors: Jose Luis Blanco-Claraco
+
+ -- Jose-Luis Blanco-Claraco <joseluisblancoc@gmail.com>  Sat, 18 Sep 2021 00:00:00 -0000
+
+
