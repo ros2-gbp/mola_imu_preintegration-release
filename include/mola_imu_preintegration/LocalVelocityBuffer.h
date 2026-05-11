@@ -127,6 +127,13 @@ class LocalVelocityBuffer
      */
     SampleHistory collect_samples_around_reference_time(double half_time_span) const;
 
+    /** Returns all samples with timestamps strictly greater than `from` and less than or equal
+     * to `to`. If `to` is not provided, there is no upper bound (i.e. returns samples in
+     * `(from, +inf)`). Returned samples retain their original (absolute) timestamps.
+     */
+    SamplesByTime window_since(
+        const TimeStamp& from, const std::optional<TimeStamp>& to = std::nullopt) const;
+
     /// reset the buffer, clearing all entries
     void clear() { *this = {}; }
 
@@ -142,3 +149,13 @@ class LocalVelocityBuffer
 };
 
 }  // namespace mola::imu
+
+/** Feature macro: LocalVelocityBuffer exposes window_since(from, to),
+ *  used by the online gravity-rebake feature in mola_lidar_odometry to
+ *  drain the per-keyframe IMU sample window. Downstream packages in
+ *  separate repos should guard usage with
+ *  `#if defined(MOLA_IMU_PREINTEGRATION_HAS_WINDOW_SINCE)` (combined
+ *  with `__has_include(<mola_imu_preintegration/LocalVelocityBuffer.h>)`)
+ *  to remain buildable against older `mola_imu_preintegration` checkouts.
+ */
+#define MOLA_IMU_PREINTEGRATION_HAS_WINDOW_SINCE 1
