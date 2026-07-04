@@ -67,7 +67,7 @@ class ImuInitialCalibrator
 
         /// Gyroscope additive noise standard deviation
         mrpt::math::TVector3D noise_stddev_gyro{0, 0, 0};
-        ///  Accelerometer bias, already in the base_link/body frame
+        /// Accelerometer additive noise standard deviation, in the base_link/body frame
         mrpt::math::TVector3D noise_stddev_acc{0, 0, 0};
 
         double pitch = 0;  //!< Estimated pitch angle, assuming being at rest during calibration
@@ -89,7 +89,9 @@ class ImuInitialCalibrator
    private:
     std::map<std::string /*sensorLabel*/, ImuTransformer> imu_transformers_;
 
-    /// Samples here have been already transformed to be on the base_link frame:
+    /// Samples here have been already transformed to be on the base_link frame
+    /// (accel, gyro AND the absolute-orientation quaternion; placeholder identity
+    /// orientations from non-attitude IMUs are dropped on insertion):
     std::map<double, const mrpt::obs::CObservationIMU> samples_;
 };
 
