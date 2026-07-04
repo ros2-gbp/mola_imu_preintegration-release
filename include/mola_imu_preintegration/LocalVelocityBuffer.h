@@ -44,8 +44,7 @@ class LocalVelocityBuffer
     {
         Parameters() = default;
 
-        double max_time_window        = 0.5;  // seconds
-        double tolerance_search_stamp = 10e-3;  // seconds
+        double max_time_window = 0.5;  // seconds
     };
 
     Parameters parameters;
@@ -127,8 +126,24 @@ class LocalVelocityBuffer
      */
     SampleHistory collect_samples_around_reference_time(double half_time_span) const;
 
-    /// reset the buffer, clearing all entries
-    void clear() { *this = {}; }
+    /** Returns all samples with timestamps strictly greater than `from` and less than or equal
+     * to `to`. If `to` is not provided, there is no upper bound (i.e. returns samples in
+     * `(from, +inf)`). Returned samples retain their original (absolute) timestamps.
+     */
+    SamplesByTime window_since(
+        const TimeStamp& from, const std::optional<TimeStamp>& to = std::nullopt) const;
+
+    /** Clears all buffered samples and resets reference_zero_time to 0.
+     *  Does NOT reset parameters (use the default constructor for a full reset).
+     */
+    void clear()
+    {
+        linear_velocities_.clear();
+        angular_velocities_.clear();
+        linear_accelerations_.clear();
+        orientations_.clear();
+        reference_zero_time = 0.0;
+    }
 
    private:
     std::map<TimeStamp, LinearVelocity>     linear_velocities_;  // in the vehicle frame
@@ -138,7 +153,19 @@ class LocalVelocityBuffer
 
     TimeStamp reference_zero_time = 0.0;  //!< Reference time for each lidar scan
 
-    void delete_too_old_entries(const TimeStamp& now);
+    // Prunes entries older than max_time_window relative to the latest timestamp
+    // across all maps, so out-of-order insertions never evict newer data.
+    void delete_too_old_entries();
 };
 
 }  // namespace mola::imu
+
+/** Feature macro: LocalVelocityBuffer exposes window_since(from, to),
+ *  used by the online gravity-rebake feature in mola_lidar_odometry to
+ *  drain the per-keyframe IMU sample window. Downstream packages in
+ *  separate repos should guard usage with
+ *  `#if defined(MOLA_IMU_PREINTEGRATION_HAS_WINDOW_SINCE)` (combined
+ *  with `__has_include(<mola_imu_preintegration/LocalVelocityBuffer.h>)`)
+ *  to remain buildable against older `mola_imu_preintegration` checkouts.
+ */
+#define MOLA_IMU_PREINTEGRATION_HAS_WINDOW_SINCE 1
