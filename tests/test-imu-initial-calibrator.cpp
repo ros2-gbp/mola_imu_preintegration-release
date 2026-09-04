@@ -30,6 +30,7 @@
 
 #include <cmath>
 #include <iostream>
+#include <limits>
 #include <sstream>
 #include <stdexcept>
 
@@ -665,6 +666,323 @@ void TestImuInitialCalibrator()
             calib->roll, tiltRoll, tol, "roll (rotated mount, true world orientation)");
 
         std::cout << "Test 11: rotated mount + true world orientation OK.\n";
+    }
+
+    // 12. Rotated mount + ALL-ZERO quaternion, as shipped by drivers (e.g. a
+    //     raw MEMS IMU with no onboard AHRS) that leave the orientation field
+    //     unset instead of a placeholder identity. mrpt::math::CQuaternion
+    //     itself refuses to hold a non-normalized (0,0,0,0) value, so the
+    //     zero components are poked in directly, bypassing that type. This
+    //     must be dropped exactly like a placeholder identity, not crash.
+    {
+        ImuInitialCalibrator calibrator;
+        calibrator.parameters.required_samples = 3;
+        calibrator.parameters.max_samples_age  = 100.0;
+        const double g                         = calibrator.parameters.gravity;
+
+        const auto a_body   = vehicleAtt.inverseRotateVector({0.0, 0.0, g});
+        const auto a_sensor = mount.inverseRotateVector(a_body);
+
+        for (int i = 0; i < 5; ++i)
+        {
+            auto obs = create_imu_obs(
+                120.0 + static_cast<double>(i), a_sensor, {0.0, 0.0, 0.0}, std::nullopt, mount);
+            // Manually inject an all-zero quaternion (dataIsPresent=true),
+            // which create_imu_obs() cannot do via CQuaternionDouble:
+            obs->set(mrpt::obs::IMU_ORI_QUAT_W, 0.0);
+            obs->set(mrpt::obs::IMU_ORI_QUAT_X, 0.0);
+            obs->set(mrpt::obs::IMU_ORI_QUAT_Y, 0.0);
+            obs->set(mrpt::obs::IMU_ORI_QUAT_Z, 0.0);
+
+            calibrator.add(obs);
+        }
+
+        auto calib = calibrator.getCalibration();
+        ASSERT_(calib.has_value());
+
+        const double tol = 1e-5;
+        MRPT_ASSERT_NEAR_MSG_(
+            calib->pitch, tiltPitch, tol, "pitch (rotated mount, all-zero orientation)");
+        MRPT_ASSERT_NEAR_MSG_(
+            calib->roll, tiltRoll, tol, "roll (rotated mount, all-zero orientation)");
+
+        std::cout << "Test 12: rotated mount + all-zero orientation OK.\n";
+    }
+
+    // 13. Rotated mount + NaN quaternion (e.g. a sensor anomaly). NaN fails
+    //     every relational comparison, so a naive "> 0.1" degenerate check
+    //     would let it slip through as if it were a valid unit quaternion;
+    //     it must be dropped exactly like a placeholder identity, not crash.
+    {
+        ImuInitialCalibrator calibrator;
+        calibrator.parameters.required_samples = 3;
+        calibrator.parameters.max_samples_age  = 100.0;
+        const double g                         = calibrator.parameters.gravity;
+
+        const auto a_body   = vehicleAtt.inverseRotateVector({0.0, 0.0, g});
+        const auto a_sensor = mount.inverseRotateVector(a_body);
+
+        const double nan = std::numeric_limits<double>::quiet_NaN();
+
+        for (int i = 0; i < 5; ++i)
+        {
+            auto obs = create_imu_obs(
+                130.0 + static_cast<double>(i), a_sensor, {0.0, 0.0, 0.0}, std::nullopt, mount);
+            // Manually inject a NaN quaternion (dataIsPresent=true), which
+            // create_imu_obs() cannot do via CQuaternionDouble:
+            obs->set(mrpt::obs::IMU_ORI_QUAT_W, nan);
+            obs->set(mrpt::obs::IMU_ORI_QUAT_X, nan);
+            obs->set(mrpt::obs::IMU_ORI_QUAT_Y, nan);
+            obs->set(mrpt::obs::IMU_ORI_QUAT_Z, nan);
+
+            calibrator.add(obs);
+        }
+
+        auto calib = calibrator.getCalibration();
+        ASSERT_(calib.has_value());
+
+        const double tol = 1e-5;
+        MRPT_ASSERT_NEAR_MSG_(
+            calib->pitch, tiltPitch, tol, "pitch (rotated mount, NaN orientation)");
+        MRPT_ASSERT_NEAR_MSG_(calib->roll, tiltRoll, tol, "roll (rotated mount, NaN orientation)");
+
+        std::cout << "Test 13: rotated mount + NaN orientation OK.\n";
+    }
+
+    // 14. Time-window readiness is independent of the IMU rate
+    {
+        for (const double rate : {100.0, 200.0, 400.0})
+        {
+            ImuInitialCalibrator calibrator;
+            calibrator.parameters.window_seconds   = 1.0;
+            calibrator.parameters.required_samples = 20;
+
+            const double          dt = 1.0 / rate;
+            double                t  = 1000.0;
+            std::optional<double> readyAt;
+            std::size_t           readySamples = 0;
+
+            for (int i = 0; i < static_cast<int>(3 * rate); i++)
+            {
+                calibrator.add(create_imu_obs(t, {0, 0, 9.81}, {0, 0, 0}));
+                if (!readyAt.has_value())
+                {
+                    const auto r = calibrator.readiness();
+                    if (r.ready)
+                    {
+                        readyAt      = t - 1000.0;
+                        readySamples = r.samples;
+                    }
+                }
+                t += dt;
+            }
+
+            ASSERT_(readyAt.has_value());
+            MRPT_ASSERT_NEAR_MSG_(*readyAt, 1.0, 1.5 * dt, "ready time at " << rate << " Hz");
+            // Same duration, very different sample counts:
+            MRPT_ASSERT_NEAR_MSG_(
+                static_cast<double>(readySamples), rate + 1, 2.0, "samples at " << rate << " Hz");
+        }
+        std::cout << "Test 14: rate-independent time window OK.\n";
+    }
+
+    // 15. The legacy sample-count rule is rate-dependent, and unsatisfiable at low rates
+    {
+        // 400 samples at 100 Hz is 4 s of averaging, not the 1 s it is at 400 Hz:
+        ImuInitialCalibrator calibrator;
+        calibrator.parameters.required_samples = 400;
+        calibrator.parameters.max_samples_age  = 5.0;
+        calibrator.parameters.window_seconds   = 0;  // legacy mode
+
+        double t = 0;
+        for (int i = 0; i < 100; i++, t += 0.01)
+        {
+            calibrator.add(create_imu_obs(t, {0, 0, 9.81}, {0, 0, 0}));
+        }
+        ASSERT_(!calibrator.isReady());  // 1 s of data is not enough
+
+        for (int i = 0; i < 300; i++, t += 0.01)
+        {
+            calibrator.add(create_imu_obs(t, {0, 0, 9.81}, {0, 0, 0}));
+        }
+        ASSERT_(calibrator.isReady());  // only after 4 s
+
+        // And with a shorter max age it can never be satisfied at all:
+        ImuInitialCalibrator stalled;
+        stalled.parameters.required_samples = 400;
+        stalled.parameters.max_samples_age  = 3.0;
+        stalled.parameters.window_seconds   = 0;
+
+        t = 0;
+        for (int i = 0; i < 2000; i++, t += 0.01)
+        {
+            stalled.add(create_imu_obs(t, {0, 0, 9.81}, {0, 0, 0}));
+        }
+        ASSERT_(!stalled.isReady());  // 20 s in, and it never will be
+
+        // The time window does not have that failure mode:
+        ImuInitialCalibrator windowed;
+        windowed.parameters.window_seconds   = 1.0;
+        windowed.parameters.required_samples = 20;
+
+        t = 0;
+        for (int i = 0; i < 2000 && !windowed.isReady(); i++, t += 0.01)
+        {
+            windowed.add(create_imu_obs(t, {0, 0, 9.81}, {0, 0, 0}));
+        }
+        ASSERT_(windowed.isReady());
+        MRPT_ASSERT_NEAR_MSG_(t, 1.01, 0.02, "100 Hz ready time with a 1 s window");
+
+        std::cout << "Test 15: legacy sample-count rate dependence OK.\n";
+    }
+
+    // 16. The minimum-sample floor rejects a degenerate window
+    {
+        ImuInitialCalibrator calibrator;
+        calibrator.parameters.window_seconds   = 1.0;
+        calibrator.parameters.required_samples = 20;
+
+        // 10 Hz: the window fills in time, but holds ~11 samples only.
+        double t = 0;
+        for (int i = 0; i < 50; i++, t += 0.1)
+        {
+            calibrator.add(create_imu_obs(t, {0, 0, 9.81}, {0, 0, 0}));
+        }
+        const auto r = calibrator.readiness();
+        ASSERT_(!r.ready);
+        ASSERT_(r.samples < 20);
+        ASSERT_(r.span > 0.85);  // the window IS filled in time
+        ASSERT_(!r.reason.empty());
+        ASSERT_(!calibrator.getCalibration().has_value());
+
+        // Proof that the floor, and not the window, is what held it back: the very same stream
+        // with a lower floor is ready.
+        ImuInitialCalibrator lowFloor;
+        lowFloor.parameters.window_seconds   = 1.0;
+        lowFloor.parameters.required_samples = 5;
+
+        t = 0;
+        for (int i = 0; i < 50; i++, t += 0.1)
+        {
+            lowFloor.add(create_imu_obs(t, {0, 0, 9.81}, {0, 0, 0}));
+        }
+        ASSERT_(lowFloor.isReady());
+
+        std::cout << "Test 16: minimum-sample floor OK.\n";
+    }
+
+    // 17. Dispersion measurement, gate deferral, release and timeout
+    {
+        const double g          = 9.81;
+        const double wobbleRad  = mrpt::DEG2RAD(3.0);
+        const double maxDispRad = mrpt::DEG2RAD(1.5);
+        const double dt         = 1.0 / 400;
+
+        // Alternating +-wobble about vertical: the mean direction is vertical by symmetry, so
+        // the RMS angular dispersion is exactly the wobble.
+        auto wobbling = [&](int i)
+        {
+            const double s = (i % 2 == 0) ? 1.0 : -1.0;
+            return mrpt::math::TVector3D(s * g * std::sin(wobbleRad), 0, g * std::cos(wobbleRad));
+        };
+
+        {
+            ImuInitialCalibrator calibrator;
+            calibrator.parameters.window_seconds           = 1.0;
+            calibrator.parameters.required_samples         = 20;
+            calibrator.parameters.max_direction_dispersion = maxDispRad;
+            calibrator.parameters.dispersion_timeout       = 5.0;
+
+            double t = 0;
+            for (int i = 0; i < 400 * 4; i++, t += dt)
+            {
+                calibrator.add(create_imu_obs(t, wobbling(i), {0, 0, 0}));
+            }
+
+            const auto disp = calibrator.directionDispersion();
+            ASSERT_(disp.has_value());
+            MRPT_ASSERT_NEAR_MSG_(
+                *disp, wobbleRad, 1e-4,
+                "measured dispersion");  // odd sample counts tilt the mean slightly
+
+            const auto r = calibrator.readiness();
+            ASSERT_(!r.ready);  // deferred: the window is not measuring gravity
+            ASSERT_(!r.timed_out);
+            // span <= window_seconds by construction (windowBegin() is a lower_bound on
+            // newest - window_seconds), so this must be a tolerance, not an equality.
+            ASSERT_(r.span > 1.0 - 2 * dt);
+            ASSERT_(r.samples >= 20);
+
+            // Keep it dynamic past the timeout: it must initialize anyway.
+            for (int i = 0; i < 400 * 2; i++, t += dt)
+            {
+                calibrator.add(create_imu_obs(t, wobbling(i), {0, 0, 0}));
+            }
+            const auto r2 = calibrator.readiness();
+            ASSERT_(r2.ready);
+            ASSERT_(r2.timed_out);
+            ASSERT_(r2.elapsed >= 5.0);
+            ASSERT_(calibrator.getCalibration().has_value());
+        }
+
+        {
+            // Same start, but the platform becomes still before the timeout:
+            ImuInitialCalibrator calibrator;
+            calibrator.parameters.window_seconds           = 1.0;
+            calibrator.parameters.required_samples         = 20;
+            calibrator.parameters.max_direction_dispersion = maxDispRad;
+            calibrator.parameters.dispersion_timeout       = 5.0;
+
+            double t = 0;
+            for (int i = 0; i < 400 * 2; i++, t += dt)
+            {
+                calibrator.add(create_imu_obs(t, wobbling(i), {0, 0, 0}));
+            }
+            ASSERT_(!calibrator.isReady());
+
+            for (int i = 0; i < 400 * 2 && !calibrator.isReady(); i++, t += dt)
+            {
+                calibrator.add(create_imu_obs(t, {0, 0, g}, {0, 0, 0}));
+            }
+
+            const auto r = calibrator.readiness();
+            ASSERT_(r.ready);
+            ASSERT_(!r.timed_out);  // released by the data, not by the clock
+            ASSERT_(r.elapsed < 5.0);
+        }
+
+        std::cout << "Test 17: dispersion gate defer/release/timeout OK.\n";
+    }
+
+    // 18. Only the samples inside the window take part in the average
+    {
+        const double g       = 9.81;
+        const double dt      = 1.0 / 400;
+        const double tiltRad = mrpt::DEG2RAD(10.0);
+
+        ImuInitialCalibrator calibrator;
+        calibrator.parameters.window_seconds   = 1.0;
+        calibrator.parameters.required_samples = 20;
+        calibrator.parameters.max_samples_age  = 10.0;  // ignored in time-window mode
+
+        double t = 0;
+        // 1 s of a 10 deg pitch, then 1.2 s level:
+        for (int i = 0; i < 400; i++, t += dt)
+        {
+            calibrator.add(
+                create_imu_obs(t, {-g * std::sin(tiltRad), 0, g * std::cos(tiltRad)}, {0, 0, 0}));
+        }
+        for (int i = 0; i < 480; i++, t += dt)
+        {
+            calibrator.add(create_imu_obs(t, {0, 0, g}, {0, 0, 0}));
+        }
+
+        const auto calib = calibrator.getCalibration();
+        ASSERT_(calib.has_value());
+        MRPT_ASSERT_NEAR_MSG_(calib->pitch, 0.0, 1e-9, "pitch must forget the pre-window tilt");
+        MRPT_ASSERT_NEAR_MSG_(calib->roll, 0.0, 1e-9, "roll must forget the pre-window tilt");
+
+        std::cout << "Test 18: averaging is restricted to the window OK.\n";
     }
 
     std::cout << "--- TestImuInitialCalibrator finished OK ---\n";
