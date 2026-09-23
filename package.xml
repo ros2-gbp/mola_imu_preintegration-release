@@ -5,7 +5,7 @@
 -->
 <package format="3">
   <name>mola_imu_preintegration</name>
-  <version>2.0.0</version>
+  <version>3.0.0</version>
   <description>Integrator of IMU angular velocity readings</description>
 
   <maintainer email="joseluisblancoc@gmail.com">Jose-Luis Blanco-Claraco</maintainer>
@@ -15,7 +15,10 @@
 
 
   <depend>mola_common</depend>
-  <depend>mrpt_libobs</depend>
+  <depend>mrpt_containers</depend>
+  <depend>mrpt_poses</depend>
+  <depend>mrpt_obs</depend>
+  <build_depend>eigen</build_depend>
 
   <doc_depend>doxygen</doc_depend>
 
