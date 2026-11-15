@@ -269,6 +269,193 @@ void test_high_rate_tangential_lever_arm()
     std::cout << "✅ test_high_rate_tangential_lever_arm passed!" << std::endl;
 }
 
+// Angular acceleration estimated after a step of `alpha_z` starting at t=0, at
+// time `t_end`, sampling at `rate_hz`. Read from the tangential lever-arm term.
+double estimated_ang_acc_after_step(
+    ImuTransformer& tf, double rate_hz, double alpha_z, double t_end)
+{
+    const auto      sensorPose = mrpt::poses::CPose3D::FromTranslation(0.5, 0.0, 0.0);
+    const TVector3D acc        = {0.0, 0.0, 9.81};
+    const double    dt         = 1.0 / rate_hz;
+    const int       n          = static_cast<int>(std::lround(t_end / dt));
+
+    mrpt::obs::CObservationIMU out;
+    for (int i = 0; i <= n; ++i)
+    {
+        const TVector3D w = {0.0, 0.0, alpha_z * (i * dt)};
+        out               = tf.process(*make_imu(100.0 + dt * i, acc, w, sensorPose));
+    }
+    // With w along z and the lever arm along x, the tangential term is
+    // (0, alpha*0.5, 0) and the centripetal one is along x only:
+    return -2.0 * (get_acc(out).y - acc.y);
+}
+
+// 8) The default low-pass filters are specified by a cut-off frequency, so their
+//    response does not depend on the IMU rate.
+void test_cutoff_is_rate_independent()
+{
+    const double alpha_z = 4.0;
+    const double t_end   = 0.05;
+
+    ImuTransformer tf_100;
+    ImuTransformer tf_400;
+    const double   a100 = estimated_ang_acc_after_step(tf_100, 100.0, alpha_z, t_end);
+    const double   a400 = estimated_ang_acc_after_step(tf_400, 400.0, alpha_z, t_end);
+
+    const double fc       = tf_100.parameters.ang_acc_lpf_cutoff_hz;
+    const double expected = alpha_z * (1.0 - std::exp(-2.0 * M_PI * fc * t_end));
+
+    ASSERT_NEAR_(a100, expected, 1e-6);
+    ASSERT_NEAR_(a400, expected, 1e-6);
+
+    std::cout << "✅ test_cutoff_is_rate_independent passed!" << std::endl;
+}
+
+// 9) A legacy per-sample alpha, if set, overrides the cut-off frequency.
+void test_legacy_alpha_overrides_cutoff()
+{
+    const double alpha_z = 4.0;
+    const double t_end   = 0.05;
+    const double rate    = 100.0;
+    const double a       = 0.02;
+
+    ImuTransformer tf;
+    tf.parameters.ang_acc_lpf_alpha = a;
+    const double est                = estimated_ang_acc_after_step(tf, rate, alpha_z, t_end);
+
+    const int    n        = static_cast<int>(std::lround(t_end * rate));
+    const double expected = alpha_z * (1.0 - std::pow(1.0 - a, n));
+    ASSERT_NEAR_(est, expected, 1e-6);
+
+    std::cout << "✅ test_legacy_alpha_overrides_cutoff passed!" << std::endl;
+}
+
+// Filtered angular velocity of the centripetal lever-arm term, after a step of
+// `w_z` right after the first reading, at time `t_end`, sampling at `rate_hz`.
+double filtered_ang_vel_after_step(ImuTransformer& tf, double rate_hz, double w_z, double t_end)
+{
+    const auto      sensorPose = mrpt::poses::CPose3D::FromTranslation(0.5, 0.0, 0.0);
+    const TVector3D acc        = {0.0, 0.0, 9.81};
+    const TVector3D w_zero     = {0.0, 0.0, 0.0};
+    const TVector3D w_step     = {0.0, 0.0, w_z};
+    const double    dt         = 1.0 / rate_hz;
+    const int       n          = static_cast<int>(std::lround(t_end / dt));
+
+    auto out = tf.process(*make_imu(100.0, acc, w_zero, sensorPose));
+    for (int i = 1; i <= n; ++i)
+    {
+        out = tf.process(*make_imu(100.0 + dt * i, acc, w_step, sensorPose));
+    }
+    // With w along z and the lever arm along x, the centripetal term adds
+    // 0.5*w^2 along x, and the tangential one is along y only:
+    return std::sqrt(2.0 * (get_acc(out).x - acc.x));
+}
+
+// 10) The centripetal term has its own cut-off frequency, which <= 0 disables,
+//     and which a legacy per-sample alpha overrides.
+void test_ang_vel_cutoff()
+{
+    const double w_z   = 2.0;
+    const double t_end = 0.05;
+    const double rate  = 200.0;
+    const int    n     = static_cast<int>(std::lround(t_end * rate));
+
+    // Different cut-offs, so that mixing up the two filters fails:
+    ImuTransformer tf;
+    tf.parameters.ang_vel_lpf_cutoff_hz = 5.0;
+    tf.parameters.ang_acc_lpf_cutoff_hz = 40.0;
+    ASSERT_NEAR_(
+        filtered_ang_vel_after_step(tf, rate, w_z, t_end),
+        w_z * (1.0 - std::exp(-2.0 * M_PI * 5.0 * t_end)), 1e-6);
+
+    ImuTransformer tf_unfiltered;
+    tf_unfiltered.parameters.ang_vel_lpf_cutoff_hz = 0;
+    ASSERT_NEAR_(filtered_ang_vel_after_step(tf_unfiltered, rate, w_z, t_end), w_z, 1e-6);
+
+    ImuTransformer tf_legacy;
+    tf_legacy.parameters.ang_vel_lpf_alpha = 0.3;
+    ASSERT_NEAR_(
+        filtered_ang_vel_after_step(tf_legacy, rate, w_z, t_end),
+        w_z * (1.0 - std::pow(1.0 - 0.3, n)), 1e-6);
+
+    std::cout << "✅ test_ang_vel_cutoff passed!" << std::endl;
+}
+
+// 11) Accelerometer units: readings in units of g are output in m/s², those in
+//     m/s² unchanged, from the first reading on. The decision ignores readings
+//     without information (zeros, NaN), is kept after its first 0.5 s, and an
+//     explicit accel_scale is applied as is.
+void test_accel_units()
+{
+    const auto       sensorPose = mrpt::poses::CPose3D::Identity();
+    const TVector3D  w          = {0.0, 0.0, 0.0};
+    constexpr double DT         = 0.005;  // 200 Hz
+
+    // Feeds `n` readings of acc_z from reading index `i0`, and checks that every
+    // output equals `expected`:
+    const auto feed =
+        [&](ImuTransformer& tf, int i0, int n, double acc_z, double expected, const char* what)
+    {
+        for (int i = i0; i < i0 + n; ++i)
+        {
+            const auto out =
+                tf.process(*make_imu(100.0 + DT * i, {0.0, 0.0, acc_z}, w, sensorPose));
+            // Written so that a NaN output fails too:
+            if (!(std::abs(get_acc(out).z - expected) <= 1e-9))
+            {
+                THROW_EXCEPTION_FMT(
+                    "%s: reading %d gave %f, expected %f", what, i, get_acc(out).z, expected);
+            }
+        }
+    };
+
+    // Units of g, then frozen: a later reading of 9.81 (in g) is still scaled.
+    ImuTransformer tf_g;
+    feed(tf_g, 0, 120, 1.0, 9.80665, "units of g");
+    feed(tf_g, 120, 10, 9.81, 9.81 * 9.80665, "units of g, frozen");
+
+    // A reading after a gap, past the span, does not change the decision:
+    ImuTransformer tf_gap;
+    feed(tf_gap, 0, 1, 1.0, 9.80665, "units of g, one reading");
+    feed(tf_gap, 200, 1, 5.0, 5.0 * 9.80665, "units of g, after a gap");
+
+    // m/s², then frozen: a later reading of 1.0 is not scaled.
+    ImuTransformer tf_si;
+    feed(tf_si, 0, 120, 9.81, 9.81, "m/s^2");
+    feed(tf_si, 120, 10, 1.0, 1.0, "m/s^2, frozen");
+
+    // Zeros while a driver starts do not count:
+    ImuTransformer tf_zeros;
+    feed(tf_zeros, 0, 80, 0.0, 0.0, "leading zeros");
+    feed(tf_zeros, 80, 120, 9.81, 9.81, "m/s^2 after zeros");
+
+    // Nor does a non-finite reading:
+    ImuTransformer tf_nan;
+    tf_nan.process(*make_imu(100.0, {0.0, 0.0, std::nan("")}, w, sensorPose));
+    feed(tf_nan, 1, 120, 1.0, 9.80665, "units of g after NaN");
+
+    // An explicit scale:
+    ImuTransformer tf_fixed;
+    tf_fixed.parameters.accel_scale = 1.0;
+    feed(tf_fixed, 0, 10, 1.0, 1.0, "explicit scale");
+
+    // A negative one is rejected:
+    ImuTransformer tf_neg;
+    tf_neg.parameters.accel_scale = -1.0;
+    bool thrown                   = false;
+    try
+    {
+        tf_neg.process(*make_imu(100.0, {0.0, 0.0, 9.81}, w, sensorPose));
+    }
+    catch (const std::exception&)
+    {
+        thrown = true;
+    }
+    ASSERT_(thrown);
+
+    std::cout << "✅ test_accel_units passed!" << std::endl;
+}
+
 }  // namespace
 
 int main([[maybe_unused]] int argc, [[maybe_unused]] char** argv)
@@ -282,6 +469,10 @@ int main([[maybe_unused]] int argc, [[maybe_unused]] char** argv)
         test_dt_gap_restarts_filters();
         test_near_duplicate_timestamp_no_spike();
         test_high_rate_tangential_lever_arm();
+        test_cutoff_is_rate_independent();
+        test_legacy_alpha_overrides_cutoff();
+        test_ang_vel_cutoff();
+        test_accel_units();
         std::cout << "All ImuTransformer tests passed." << std::endl;
         return 0;
     }
