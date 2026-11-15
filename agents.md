@@ -18,7 +18,10 @@ Everything is GTSAM-free: MRPT Lie algebra only.
   `ΔR ← ΔR · Exp((ω − b_g)·dt)`. Bias subtracted in IMU frame, then rotated to body via `sensor_pose`.
 - `ImuTransformer` — moves raw readings to `base_link`: rotates ω/accel and applies the rigid-body
   lever arm `a_body = R·a_imu − α×t − ω×(ω×t)`. Stateful (one instance per IMU); uses EMA low-pass
-  filters for α (finite-diff) and the centripetal ω. Output `IMU_W*` channels stay full-bandwidth.
+  filters for α (finite-diff) and the centripetal ω, set by cut-off frequency (20 Hz default; per-sample
+  factor from each reading's dt), or by the legacy per-sample `*_lpf_alpha` if > 0. Output `IMU_W*`
+  channels stay full-bandwidth. Accel is converted to m/s² by `accel_scale` (0 = auto: units of g if
+  the mean norm of the valid readings over their first 0.5 s is below 3, then frozen).
 - `ImuAverager` — decimates a high-rate stream to one reading per period, the **average** of the
   period (ω and accel over finite readings; quaternion from the newest; stamp = batch mean). Keeping
   one raw reading instead aliases motor/propeller vibration into whatever consumes it. Apply
@@ -31,10 +34,27 @@ Everything is GTSAM-free: MRPT Lie algebra only.
   defers readiness while the buffered accel directions say the window is motion rather than gravity,
   released by `dispersion_timeout`. The shipped LO pipelines opt into both. `bias_gyro` is a plain mean: real rotation on a moving start, do not wire it
   into a preintegrator without a staticness gate.
+- `ImuBiasTracker`: per-sensor-label gyro and accel bias, as random walks (a Kalman filter each),
+  in the IMU SENSOR frame. Updated by standstill windows it detects itself (sliding window with
+  running sums: gyro/accel RMS about their means, |accel| close to g, gyro mean within
+  max(abs gate, k sigma) of the propagated estimate; at rest only the accel bias ALONG gravity is
+  observable, relative to `gravity_magnitude`) and by external measurements (sensor frame; older
+  ones de-weighted by the random walk). Offsets beyond the gate that agree with each other for
+  `gyro_reacquire_time` in total (2 windows if "static" hints touch them), and within what the
+  prior allows, mean the bias changed: covariance reset to the prior. Offsets within the gate but
+  beyond k sigma inflate the covariance.
+  Smooth low-vibration motion (slow turns, wide curves) passes as standstill from the IMU alone:
+  `add_motion_hint()` vetoes windows; hints are point events holding forward (hint both ends of
+  an increment; sources merged, a >10 s jump back is a clock jump); once any hint arrives readings
+  wait for hints (up to `max_hint_latency`;
+  `flush()` at the end), so late LiDAR odometry hints still count. Eigenvalue floors on the
+  posterior; covariance growth capped at the prior; garbage readings and stamps ignored.
 - `LocalVelocityBuffer` — time-keyed ring of v/a/ω/orientation; YAML (de)serialize; window queries.
 - `trajectory_from_buffer()` — dead-reckons an SE(3) trajectory around `t=0` from one orientation
   anchor + one velocity anchor + IMU ω/accel. Specific force → coordinate accel via
-  `ac_b = a_b + Rᵀ_ga·g_world`. `use_higher_order` adds jerk/α Taylor terms.
+  `ac_b = a_b + Rᵀ_ga·g_world`. Default rotation steps use the mean of the step's two gyro
+  readings (trapezoidal), with ω interpolated at nodes between IMU stamps (t=0, anchors).
+  `use_higher_order` uses jerk/α Taylor terms instead.
 
 ## Conventions / gotchas
 - Frames: angular/linear quantities in body (`base_link`) frame; orientations are global,
